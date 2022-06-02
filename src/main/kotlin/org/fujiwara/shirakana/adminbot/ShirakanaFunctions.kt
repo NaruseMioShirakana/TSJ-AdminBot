@@ -39,7 +39,7 @@ public object ShirakanaEventListener : SimpleListenerHost() {
                     ShirakanaDataGroupMember.bigCleanParanoia += 2
                     for(GroupID in ShirakanaDataGroupMember.selectedGroups){
                         val tmpGroup = bot.getGroup(GroupID.toLong())
-                        if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup?.botAsMember!!.isOwner()){
+                        if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup.botAsMember.isOwner()){
                             if(ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
                                 ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
                                     tmpGroup.announcements.delete(
@@ -131,7 +131,7 @@ public object ShirakanaEventListener : SimpleListenerHost() {
         if(ShirakanaDataFlags.flagSmallCleanStart) {
             if(group.id==ShirakanaDataFlags.flagSmallCleanTarget&&sender.isAdministrator()){
                 if(ShirakanaDataGroupMember.smallCleanTarget.isEmpty()){
-                    group.sendMessage("列表中无成员")
+                    group.sendMessage("列表中无成员,清洗自动结束")
                     ShirakanaDataFlags.flagSmallCleanStart = false
                     ShirakanaDataFlags.flagSmallCleanTarget = 0L
                     return
@@ -159,8 +159,8 @@ public object ShirakanaEventListener : SimpleListenerHost() {
                             val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/"+member.id.toString()+".png"
                             val outPutImage = File(thisFileName)
                             ImageIO.write(newImg, "png", outPutImage)
-                            group.sendMessage(msgChain)
                             for(groupID in ShirakanaDataGroupMember.selectedGroups){
+                                bot.getGroup(groupID.toLong())?.sendMessage(msgChain)
                                 bot.getGroup(groupID.toLong())?.get(memberId.toLong())?.kick("你已被清洗")
                             }
                             ShirakanaDataGroupMember.ShirakanaBlackListGroup.add(memberId)

@@ -80,7 +80,7 @@ object ShirakanaParanoia : CompositeCommand(
         ShirakanaDataGroupMember.bigCleanParanoia = tempParanoia
         for(GroupID in ShirakanaDataGroupMember.selectedGroups){
             val tmpGroup = bot?.getGroup(GroupID.toLong())
-            if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup?.botAsMember!!.isOwner()){
+            if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup.botAsMember.isOwner()){
                 if(ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
                     ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
                         tmpGroup.announcements.delete(
@@ -126,7 +126,7 @@ object ShirakanaParanoia : CompositeCommand(
         ShirakanaDataGroupMember.bigCleanParanoia = tempParanoia
         for(GroupID in ShirakanaDataGroupMember.selectedGroups){
             val tmpGroup = bot?.getGroup(GroupID.toLong())
-            if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup?.botAsMember!!.isOwner()){
+            if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup.botAsMember.isOwner()){
                 if(ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
                     ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
                         tmpGroup.announcements.delete(
@@ -399,7 +399,7 @@ object ShirakanaXianZhongRen : CompositeCommand(
     suspend fun CommandSender.kill(TmpMember : Member){
         for(groupId in ShirakanaDataGroupMember.selectedGroups){
             val thisGroupTmp = bot?.getGroup(groupId.toLong())
-            if(thisGroupTmp!=null){
+            if(thisGroupTmp?.get(TmpMember.id) != null){
                 if(TmpMember.isAdministrator()||TmpMember.isOwner()){
                     sendMessage("你无权清洗管理员")
                     return
@@ -407,7 +407,6 @@ object ShirakanaXianZhongRen : CompositeCommand(
                 val msgChain = buildMessageChain {
                     +PlainText("群友："+TmpMember.nick+"已被清洗\n")
                     +ShirakanaParanoia.GetImageTutu(TmpMember,thisGroupTmp)
-                    +PlainText("清洗结束后，记得输入“结束清洗”来结束大清洗")
                 }
                 thisGroupTmp.sendMessage(msgChain)
                 val newImg = ImageIO.read(URL(TmpMember.avatarUrl))
