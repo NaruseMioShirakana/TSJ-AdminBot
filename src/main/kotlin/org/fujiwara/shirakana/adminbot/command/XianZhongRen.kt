@@ -395,6 +395,31 @@ object ShirakanaXianZhongRen : CompositeCommand(
         sendMessage("清洗完毕")
     }
     @SubCommand
+    @Description("清洗一个指定群员（可用@）")
+    suspend fun CommandSender.kill(TmpMember : Member){
+        for(groupId in ShirakanaDataGroupMember.selectedGroups){
+            val thisGroupTmp = bot?.getGroup(groupId.toLong())
+            if(thisGroupTmp!=null){
+                if(TmpMember.isAdministrator()||TmpMember.isOwner()){
+                    sendMessage("你无权清洗管理员")
+                    return
+                }
+                val msgChain = buildMessageChain {
+                    +PlainText("群友："+TmpMember.nick+"已被清洗\n")
+                    +ShirakanaParanoia.GetImageTutu(TmpMember,thisGroupTmp)
+                    +PlainText("清洗结束后，记得输入“结束清洗”来结束大清洗")
+                }
+                thisGroupTmp.sendMessage(msgChain)
+                val newImg = ImageIO.read(URL(TmpMember.avatarUrl))
+                val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/"+TmpMember.id.toString()+".png"
+                val outPutImage = File(thisFileName)
+                ImageIO.write(newImg, "png", outPutImage)
+                thisGroupTmp.get(TmpMember.id)?.kick("你已被清洗")
+            }
+        }
+        sendMessage("清洗完毕")
+    }
+    @SubCommand
     @Description("帮助")
     suspend fun CommandSender.help(){
         sendMessage("帮助如下：（<>代表参数）\n/Tutu SmallClean <群号>：在指定群开启清洗（清洗目标为CleanList smallclean指定的人，执行后可以从中选择任意人数进行清洗\n/Tutu BigClean：开启大清洗（会跳过CleanList bigclean指定的人、有群专属头衔的人、群备注包含ShirakanaBigCleanSetting.nameStandard的人）默认目标为2个月不发言的群员\n/Tutu List：查看被清洗者名单\n/Tutu Add <QQ>：将某人加入已被清洗名单\n/Tutu Del <QQ>：将某人删除出已被清洗名单\n/Tutu kick：在所有的群踢出“已被清洗”名单中的群员")

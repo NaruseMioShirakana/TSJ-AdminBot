@@ -10,7 +10,7 @@ plugins {
 }
 
 group = "org.fujiwara.shirakana.adminbot"
-version = "Alpha"
+version = "0.0.2"
 
 repositories {
     maven("https://maven.aliyun.com/repository/public")
