@@ -75,7 +75,6 @@ public object ShirakanaEventListener : SimpleListenerHost() {
         }, startTime, 1000*24*60*60)
         println("定时任务：偏执度——启动完毕")
     }
-
     @EventHandler
     internal suspend fun BotOnlineEvent.handle1() {
         val newDire = File("shirakana")

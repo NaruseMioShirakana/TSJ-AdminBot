@@ -253,7 +253,7 @@ object ShirakanaParanoia : CompositeCommand(
         graphics.drawImage(imageMembers, 29, 22, 154, 154, null)
         graphics.drawImage(stalinAKImg, 0, 0, null)
         graphics.dispose()
-        val uuidFileName="shirakana/"+Date().toString().replace("-","")+UUID.randomUUID().toString().replace("-","")+".png"
+        val uuidFileName="shirakana/"+UUID.randomUUID().toString().replace("-","")+".png"
         val outPutImage = File(uuidFileName)
         ImageIO.write(newImg, "png", outPutImage)
         return outPutImage.toExternalResource()
@@ -413,6 +413,7 @@ object ShirakanaXianZhongRen : CompositeCommand(
                 val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/"+TmpMember.id.toString()+".png"
                 val outPutImage = File(thisFileName)
                 ImageIO.write(newImg, "png", outPutImage)
+                ShirakanaDataGroupMember.ShirakanaBlackListGroup.add(TmpMember.id.toString())
                 thisGroupTmp.get(TmpMember.id)?.kick("你已被清洗")
             }
         }
