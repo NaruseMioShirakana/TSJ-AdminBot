@@ -36,39 +36,48 @@ public object ShirakanaEventListener : SimpleListenerHost() {
         t1.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 launch{
-                    ShirakanaDataGroupMember.bigCleanParanoia += 2
-                    for(GroupID in ShirakanaDataGroupMember.selectedGroups){
-                        val tmpGroup = bot.getGroup(GroupID.toLong())
-                        if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup.botAsMember.isOwner()){
-                            if(ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
-                                ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
-                                    tmpGroup.announcements.delete(
-                                        it
+                    if(ShirakanaBigCleanSetting.big_clean_switch) {
+                        ShirakanaDataGroupMember.bigCleanParanoia += 2
+                        for (GroupID in ShirakanaDataGroupMember.selectedGroups) {
+                            val tmpGroup = bot.getGroup(GroupID.toLong())
+                            if (tmpGroup?.botAsMember!!.isAdministrator() || tmpGroup.botAsMember.isOwner()) {
+                                if (ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())) {
+                                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
+                                        tmpGroup.announcements.delete(
+                                            it
+                                        )
+                                    }
+                                }
+                                val imageAnnouncementTmp =
+                                    tmpGroup.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(tmpGroup))
+                                val parameterTmp = buildAnnouncementParameters {
+                                    image = imageAnnouncementTmp
+                                    sendToNewMember = false
+                                    isPinned = false
+                                    showEditCard = false
+                                    showPopup = true
+                                    requireConfirmation = false
+                                }
+                                val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
+                                if (!ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())) {
+                                    ShirakanaDataFlags.shirakanaAnnouncements.put(
+                                        GroupID.toLong(),
+                                        announcementTemp.publishTo(tmpGroup).fid
                                     )
+                                } else {
+                                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()] =
+                                        announcementTemp.publishTo(tmpGroup).fid
                                 }
                             }
-                            val imageAnnouncementTmp = tmpGroup.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(tmpGroup))
-                            val parameterTmp = buildAnnouncementParameters {
-                                image = imageAnnouncementTmp
-                                sendToNewMember = false
-                                isPinned = false
-                                showEditCard = false
-                                showPopup = true
-                                requireConfirmation = false
-                            }
-                            val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
-                            if(!ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
-                                ShirakanaDataFlags.shirakanaAnnouncements.put(GroupID.toLong(), announcementTemp.publishTo(tmpGroup).fid)
-                            }else{
-                                ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()] = announcementTemp.publishTo(tmpGroup).fid
-                            }
                         }
-                    }
-                    if(ShirakanaDataGroupMember.bigCleanParanoia == 50L){
-                        bot.getGroup(ShirakanaAdministratorList.adminGroup)?.sendMessage("偏执度已达到50，可以发动点名清洗（/Tutu SmallClean <群号>）")
-                    }
-                    if(ShirakanaDataGroupMember.bigCleanParanoia == 100L){
-                        bot.getGroup(ShirakanaAdministratorList.adminGroup)?.sendMessage("偏执度已达到100，可以发动大清洗（/Tutu BigClean）")
+                        if (ShirakanaDataGroupMember.bigCleanParanoia == 50L) {
+                            bot.getGroup(ShirakanaAdministratorList.adminGroup)
+                                ?.sendMessage("偏执度已达到50，可以发动点名清洗（/Tutu SmallClean <群号>）")
+                        }
+                        if (ShirakanaDataGroupMember.bigCleanParanoia == 100L) {
+                            bot.getGroup(ShirakanaAdministratorList.adminGroup)
+                                ?.sendMessage("偏执度已达到100，可以发动大清洗（/Tutu BigClean）")
+                        }
                     }
                 }
             }
