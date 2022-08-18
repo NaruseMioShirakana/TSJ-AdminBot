@@ -1,8 +1,8 @@
 package org.fujiwara.shirakana.adminbot
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import net.mamoe.mirai.contact.announcement.AnnouncementParameters
-import net.mamoe.mirai.contact.announcement.AnnouncementParametersBuilder
+import kotlinx.coroutines.withContext
 import net.mamoe.mirai.contact.announcement.OfflineAnnouncement
 import net.mamoe.mirai.contact.announcement.buildAnnouncementParameters
 import net.mamoe.mirai.contact.isAdministrator
@@ -10,8 +10,9 @@ import net.mamoe.mirai.contact.isOwner
 import net.mamoe.mirai.event.EventHandler
 import net.mamoe.mirai.event.SimpleListenerHost
 import net.mamoe.mirai.event.events.*
-import net.mamoe.mirai.message.data.*
-import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
+import net.mamoe.mirai.message.data.At
+import net.mamoe.mirai.message.data.PlainText
+import net.mamoe.mirai.message.data.buildMessageChain
 import net.mamoe.mirai.utils.info
 import org.fujiwara.shirakana.adminbot.command.ShirakanaParanoia
 import org.fujiwara.shirakana.adminbot.configAndData.ShirakanaAdministratorList
@@ -36,48 +37,49 @@ public object ShirakanaEventListener : SimpleListenerHost() {
         t1.scheduleAtFixedRate(object : TimerTask() {
             override fun run() {
                 launch{
-                    if(ShirakanaBigCleanSetting.big_clean_switch) {
-                        ShirakanaDataGroupMember.bigCleanParanoia += 2
-                        for (GroupID in ShirakanaDataGroupMember.selectedGroups) {
-                            val tmpGroup = bot.getGroup(GroupID.toLong())
-                            if (tmpGroup?.botAsMember!!.isAdministrator() || tmpGroup.botAsMember.isOwner()) {
-                                if (ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())) {
-                                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
-                                        tmpGroup.announcements.delete(
-                                            it
-                                        )
-                                    }
-                                }
-                                val imageAnnouncementTmp =
-                                    tmpGroup.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(tmpGroup))
-                                val parameterTmp = buildAnnouncementParameters {
-                                    image = imageAnnouncementTmp
-                                    sendToNewMember = false
-                                    isPinned = false
-                                    showEditCard = false
-                                    showPopup = true
-                                    requireConfirmation = false
-                                }
-                                val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
-                                if (!ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())) {
-                                    ShirakanaDataFlags.shirakanaAnnouncements.put(
-                                        GroupID.toLong(),
-                                        announcementTemp.publishTo(tmpGroup).fid
+                    ShirakanaDataGroupMember.bigCleanParanoia += 2
+                    if(ShirakanaDataGroupMember.bigCleanParanoia>100){
+                        ShirakanaDataGroupMember.bigCleanParanoia = 100
+                    }
+                    for (GroupID in ShirakanaDataGroupMember.enabledGroups) {
+                        val tmpGroup = bot.getGroup(GroupID.toLong())
+                        if (tmpGroup?.botAsMember!!.isAdministrator() || tmpGroup.botAsMember.isOwner()) {
+                            if (ShirakanaDataFlags.announcementsList.contains(GroupID.toLong())) {
+                                ShirakanaDataFlags.announcementsList[GroupID.toLong()]?.let {
+                                    tmpGroup.announcements.delete(
+                                        it
                                     )
-                                } else {
-                                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()] =
-                                        announcementTemp.publishTo(tmpGroup).fid
                                 }
                             }
+                            val imageAnnouncementTmp =
+                                tmpGroup.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(tmpGroup))
+                            val parameterTmp = buildAnnouncementParameters {
+                                image = imageAnnouncementTmp
+                                sendToNewMember = false
+                                isPinned = false
+                                showEditCard = false
+                                showPopup = false
+                                requireConfirmation = false
+                            }
+                            val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
+                            if (!ShirakanaDataFlags.announcementsList.contains(GroupID.toLong())) {
+                                ShirakanaDataFlags.announcementsList.put(
+                                    GroupID.toLong(),
+                                    announcementTemp.publishTo(tmpGroup).fid
+                                )
+                            } else {
+                                ShirakanaDataFlags.announcementsList[GroupID.toLong()] =
+                                    announcementTemp.publishTo(tmpGroup).fid
+                            }
                         }
-                        if (ShirakanaDataGroupMember.bigCleanParanoia == 50L) {
-                            bot.getGroup(ShirakanaAdministratorList.adminGroup)
-                                ?.sendMessage("偏执度已达到50，可以发动点名清洗（/Tutu SmallClean <群号>）")
-                        }
-                        if (ShirakanaDataGroupMember.bigCleanParanoia == 100L) {
-                            bot.getGroup(ShirakanaAdministratorList.adminGroup)
-                                ?.sendMessage("偏执度已达到100，可以发动大清洗（/Tutu BigClean）")
-                        }
+                    }
+                    if (ShirakanaDataGroupMember.bigCleanParanoia == 50L) {
+                        bot.getGroup(ShirakanaAdministratorList.adminGroup)
+                            ?.sendMessage("偏执度已达到50，可以发动点名清洗（/Tutu SmallClean <群号>）")
+                    }
+                    if (ShirakanaDataGroupMember.bigCleanParanoia == 100L) {
+                        bot.getGroup(ShirakanaAdministratorList.adminGroup)
+                            ?.sendMessage("偏执度已达到100，可以发动大清洗（/Tutu BigClean）")
                     }
                 }
             }
@@ -104,7 +106,7 @@ public object ShirakanaEventListener : SimpleListenerHost() {
             override fun run() {
                 val dire = File("shirakana")
                 if (dire.exists()){
-                    for(file in dire.listFiles()){
+                    for(file in dire.listFiles()!!){
                         file.delete()
                     }
                 }
@@ -114,113 +116,65 @@ public object ShirakanaEventListener : SimpleListenerHost() {
     }
     @EventHandler
     internal suspend fun MemberJoinRequestEvent.handle() {
-        if(ShirakanaBigCleanSetting.repeat_join_clean){
-            if(ShirakanaDataGroupMember.selectedGroups.contains(groupId.toString())){
-                if(ShirakanaDataGroupMember.selectedGroupMembers.contains(fromId.toString())){
-                    if(ShirakanaDataGroupMember.groupMembersTarget.contains(fromId.toString())){
-                        reject(false,"你已经加入了另一个群，且不处于跨群白名单内，如有异议可找管理协商。")
+        if(ShirakanaDataGroupMember.enabledGroups.contains(group?.id)) {
+            if (ShirakanaDataGroupMember.blackList.contains(fromId)) {
+                reject(false, "你已被清洗，无法再次加入群聊，如有异议可找管理协商。")
+                return
+            }
+            if (ShirakanaBigCleanSetting.refuseSwitch) {
+                if (ShirakanaBigCleanSetting.refuseMode) {
+                    if (ShirakanaDataGroupMember.groupMembers.contains(fromId) && ShirakanaDataGroupMember.repeatList.contains(fromId)
+                    ) {
+                        reject(false, "你已经加入了另一个群，且不处于跨群白名单内，如有异议可找管理协商。")
+                        return
+                    }
+                } else {
+                    if (ShirakanaDataGroupMember.groupMembers.contains(fromId) && !ShirakanaDataGroupMember.repeatList.contains(fromId)
+                    ) {
+                        reject(false, "你已经加入了另一个群，且不处于跨群白名单内，如有异议可找管理协商。")
                         return
                     }
                 }
             }
-        }
-        if(ShirakanaDataGroupMember.ShirakanaBlackListGroup.contains(fromId.toString())){
-            reject(false,"你已被清洗，无法再次加入群聊，如有异议可找管理协商。")
+            if (ShirakanaDataFlags.memberJoinRequestID.contains(fromId)) {
+                reject(false, "你已经发送加入另一个群的请求，请耐心等待处理结果。")
+                return
+            }
+            ShirakanaDataFlags.memberJoinRequestID.add(fromId)
         }
     }
     @EventHandler
     internal suspend fun MemberJoinEvent.handle() {
-        if(ShirakanaDataGroupMember.selectedGroups.contains(groupId.toString())) {
-            ShirakanaDataGroupMember.selectedGroupMembers.add(member.id.toString())
-        }
-    }
-    @EventHandler
-    internal suspend fun GroupMessageEvent.handle() {
-        if(ShirakanaDataFlags.flagSmallCleanStart) {
-            if(group.id==ShirakanaDataFlags.flagSmallCleanTarget&&sender.isAdministrator()){
-                if(ShirakanaDataGroupMember.smallCleanTarget.isEmpty()){
-                    group.sendMessage("列表中无成员,清洗自动结束")
-                    ShirakanaDataFlags.flagSmallCleanStart = false
-                    ShirakanaDataFlags.flagSmallCleanTarget = 0L
-                    return
-                }
-                if(message.contentToString() == "结束清洗"){
-                    ShirakanaDataFlags.flagSmallCleanStart = false
-                    ShirakanaDataFlags.flagSmallCleanTarget = 0L
-                    group.sendMessage("清洗已经结束")
-                    return
-                }
-                for(memberId in ShirakanaDataGroupMember.smallCleanTarget){
-                    if(message.contentToString()== At(memberId.toLong()).contentToString()){
-                        val member = group.get(memberId.toLong())
-                        if(member!=null){
-                            if(member.isAdministrator()||member.isOwner()){
-                                group.sendMessage("你无权清洗管理员")
-                                continue
-                            }
-                            val msgChain = buildMessageChain {
-                                +PlainText("群友："+member.nick+"已被清洗\n")
-                                +ShirakanaParanoia.GetImageTutu(member,group)
-                                +PlainText("清洗结束后，记得输入“结束清洗”来结束大清洗")
-                            }
-                            val newImg = ImageIO.read(URL(member.avatarUrl))
-                            val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/"+member.id.toString()+".png"
-                            val outPutImage = File(thisFileName)
-                            ImageIO.write(newImg, "png", outPutImage)
-                            for(groupID in ShirakanaDataGroupMember.selectedGroups){
-                                bot.getGroup(groupID.toLong())?.sendMessage(msgChain)
-                                bot.getGroup(groupID.toLong())?.get(memberId.toLong())?.kick("你已被清洗")
-                            }
-                            ShirakanaDataGroupMember.ShirakanaBlackListGroup.add(memberId)
-                        }
-                    }
-                }
-            }
+        if(ShirakanaDataGroupMember.enabledGroups.contains(groupId)) {
+            ShirakanaDataGroupMember.groupMembers.add(member.id)
+            ShirakanaDataFlags.memberJoinRequestID.remove(member.id)
         }
     }
     @EventHandler
     internal suspend fun MemberLeaveEvent.handle() {
-        if(ShirakanaDataGroupMember.selectedGroups.contains(groupId.toString())) {
-            for(groupId in ShirakanaDataGroupMember.selectedGroups){
-                val groupThis = bot.getGroup(groupId.toLong())
-                if(groupThis!=null){
-                    for(memberThis in groupThis.members){
-                        if(member.id==memberThis.id){
-                            return
-                        }
-                    }
-                }
+        if(ShirakanaDataGroupMember.enabledGroups.contains(groupId)) {
+            for(groupId in ShirakanaDataGroupMember.enabledGroups){
+                val groupThis = bot.getGroup(groupId.toLong()) ?: continue
+                if(groupThis.members[member.id] == null) return
             }
-            ShirakanaDataGroupMember.selectedGroupMembers.remove(member.id.toString())
-            ShirakanaDataGroupMember.bigCleanTarget.remove(member.id.toString())
-            ShirakanaDataGroupMember.smallCleanTarget.remove(member.id.toString())
+            ShirakanaDataGroupMember.groupMembers.remove(member.id)
+            ShirakanaDataGroupMember.bigCleanWhiteList.remove(member.id)
+            ShirakanaDataGroupMember.kickTarget.remove(member.id)
         }
     }
     @EventHandler
     internal suspend fun BotOnlineEvent.handle(){
-        ShirakanaDataGroupMember.selectedGroupMembers.clear()
-        for(group_id in ShirakanaDataGroupMember.selectedGroups){
+        ShirakanaDataGroupMember.groupMembers.clear()
+        for(group_id in ShirakanaDataGroupMember.enabledGroups){
             val selectedGroup = bot.getGroup(group_id.toLong())?.members
             if (selectedGroup != null) {
                 for(member in selectedGroup){
-                    ShirakanaDataGroupMember.selectedGroupMembers.add(member.id.toString())
+                    ShirakanaDataGroupMember.groupMembers.add(member.id)
                 }
             }
         }
         ShirakanaAdminBot.logger.info { "群员信息重载完毕" }
     }
-    /*@EventHandler
-    internal suspend fun GroupMessageEvent.handle1() {
-        if(ShirakanaBigCleanSetting.big_clean_switch&&ShirakanaDataGroupMember.bigCleanParanoia>=100L){
-            ShirakanaDataGroupMember.bigCleanParanoia = 0
-            val tmpThisGroup = bot.getGroup(ShirakanaAdministratorList.adminGroup)
-            tmpThisGroup.sendMessage()
-        }
-        if(ShirakanaBigCleanSetting.small_clean_switch&&ShirakanaDataGroupMember.bigCleanParanoia==50L){
-
-        }
-    }
-     */
 }
 
 

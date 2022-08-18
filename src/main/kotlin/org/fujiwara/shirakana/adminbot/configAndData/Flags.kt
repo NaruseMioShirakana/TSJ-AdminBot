@@ -7,15 +7,19 @@ import net.mamoe.mirai.console.data.value
 import net.mamoe.mirai.contact.announcement.AnnouncementParametersBuilder
 
 public object ShirakanaDataFlags : AutoSavePluginData("Shirakana_AdminBot_Flags_Data") {
-    @ValueName("flagSmallCleanStart")
+    @ValueName("SmallCleanStartFlag")
     @ValueDescription("小清洗状态")
-    var flagSmallCleanStart: Boolean by value(false)
+    var smallCleanStartFlag: Boolean by value(false)
 
-    @ValueName("flagSmallCleanTarget")
+    @ValueName("CleanTarget")
     @ValueDescription("小清洗目标群")
-    var flagSmallCleanTarget: Long by value(0L)
+    var cleanTarget: Long by value(0L)
 
-    @ValueName("shirakanaAnnouncements")
+    @ValueName("AnnouncementsList")
     @ValueDescription("储存公告ID")
-    var shirakanaAnnouncements: MutableMap<Long,String> by value()
+    var announcementsList: MutableMap<Long,String> by value()
+
+    @ValueName("MemberJoinRequestID")
+    @ValueDescription("储存请求ID")
+    var memberJoinRequestID = mutableSetOf<Long>()
 }

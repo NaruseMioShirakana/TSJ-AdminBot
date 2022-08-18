@@ -1,7 +1,8 @@
 package org.fujiwara.shirakana.adminbot.command
 
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import net.mamoe.mirai.console.command.*
-import net.mamoe.mirai.console.util.ContactUtils.getContact
 import net.mamoe.mirai.contact.*
 import net.mamoe.mirai.contact.announcement.OfflineAnnouncement
 import net.mamoe.mirai.contact.announcement.buildAnnouncementParameters
@@ -11,7 +12,6 @@ import net.mamoe.mirai.utils.ExternalResource.Companion.toExternalResource
 import net.mamoe.mirai.utils.ExternalResource.Companion.uploadAsImage
 import org.fujiwara.shirakana.adminbot.*
 import org.fujiwara.shirakana.adminbot.configAndData.*
-import java.awt.Color
 import java.awt.Font
 import java.awt.image.*
 import java.io.File
@@ -58,108 +58,62 @@ object ShirakanaParanoia : CompositeCommand(
     suspend fun CommandSender.add(Amount: Long) {
         if(Amount<=0){return}
         var tempParanoia = ShirakanaDataGroupMember.bigCleanParanoia
-        if (tempParanoia < 50){
-            tempParanoia+=Amount
-            if (tempParanoia in 50..99){
-                sendMessage("偏执度已经达到小清洗阈值，请决定是否开始小清洗，若决定为是则运行指令/Tutu SmallClean")
-            }
-            else{
-                if(tempParanoia>=100){
-                    sendMessage("偏执度已经达到小清洗阈值，请决定是否开始小清洗，若决定为是则运行指令/Tutu BigClean")
-                    tempParanoia=0
-                }
-            }
-        }
-        if (tempParanoia in 50..99){
-            tempParanoia+=Amount
-            if(tempParanoia>=100){
-                sendMessage("偏执度已经达到小清洗阈值，请决定是否开始小清洗，若决定为是则运行指令/Tutu BigClean")
-                tempParanoia=100
-            }
+        tempParanoia += Amount
+        if(tempParanoia > 100){
+            tempParanoia = 100
         }
         ShirakanaDataGroupMember.bigCleanParanoia = tempParanoia
-        for(GroupID in ShirakanaDataGroupMember.selectedGroups){
-            val tmpGroup = bot?.getGroup(GroupID.toLong())
-            if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup.botAsMember.isOwner()){
-                if(ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
-                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
-                        tmpGroup.announcements.delete(
-                            it
-                        )
-                    }
-                }
-                val imageAnnouncementTmp = tmpGroup.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(tmpGroup))
-                val parameterTmp = buildAnnouncementParameters {
-                    image = imageAnnouncementTmp
-                    sendToNewMember = false
-                    isPinned = false
-                    showEditCard = false
-                    showPopup = true
-                    requireConfirmation = false
-                }
-                val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
-                if(!ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
-                    ShirakanaDataFlags.shirakanaAnnouncements.put(GroupID.toLong(), announcementTemp.publishTo(tmpGroup).fid)
-                }else{
-                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()] = announcementTemp.publishTo(tmpGroup).fid
-                }
-            }
-        }
+        sendMessage("当前偏执度${tempParanoia}")
     }
     @SubCommand
     @Description("减少指定数量的偏执度")
     suspend fun CommandSender.decrease(Amount: Long) {
         if(Amount<=0){return}
         var tempParanoia = ShirakanaDataGroupMember.bigCleanParanoia
-        if (tempParanoia < 50){
-            tempParanoia-=Amount
-            if (tempParanoia <0){
-                tempParanoia=0
-            }
-        }
-        if (tempParanoia in 51..99){
-            tempParanoia+=Amount
-            if(tempParanoia < 50){
-                tempParanoia=52
-            }
+        tempParanoia -= Amount
+        if(tempParanoia < 0){
+            tempParanoia = 0
         }
         ShirakanaDataGroupMember.bigCleanParanoia = tempParanoia
-        for(GroupID in ShirakanaDataGroupMember.selectedGroups){
-            val tmpGroup = bot?.getGroup(GroupID.toLong())
-            if(tmpGroup?.botAsMember!!.isAdministrator()||tmpGroup.botAsMember.isOwner()){
-                if(ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
-                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()]?.let {
-                        tmpGroup.announcements.delete(
-                            it
-                        )
-                    }
-                }
-                val imageAnnouncementTmp = tmpGroup.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(tmpGroup))
-                val parameterTmp = buildAnnouncementParameters {
-                    image = imageAnnouncementTmp
-                    sendToNewMember = false
-                    isPinned = false
-                    showEditCard = false
-                    showPopup = true
-                    requireConfirmation = false
-                }
-                val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
-                if(!ShirakanaDataFlags.shirakanaAnnouncements.contains(GroupID.toLong())){
-                    ShirakanaDataFlags.shirakanaAnnouncements.put(GroupID.toLong(), announcementTemp.publishTo(tmpGroup).fid)
-                }else{
-                    ShirakanaDataFlags.shirakanaAnnouncements[GroupID.toLong()] = announcementTemp.publishTo(tmpGroup).fid
-                }
-            }
-        }
+        sendMessage("当前偏执度${tempParanoia}")
     }
     @SubCommand
     @Description("查看管理偏执度数值")
-    suspend fun CommandSender.amount() {
+    suspend fun CommandSender.reload() {
         if(bot==null||subject==null){
             return
         }
         val group1 = bot?.getGroup(subject!!.id) ?: return
-        subject!!.sendMessage(paranoiaImage(group1).uploadAsImage(group1))
+        val GroupID = group1.id
+        if (group1?.botAsMember!!.isAdministrator() || group1.botAsMember.isOwner()) {
+            if (ShirakanaDataFlags.announcementsList.contains(GroupID.toLong())) {
+                ShirakanaDataFlags.announcementsList[GroupID.toLong()]?.let {
+                    group1.announcements.delete(
+                        it
+                    )
+                }
+            }
+            val imageAnnouncementTmp =
+                group1.announcements.uploadImage(ShirakanaParanoia.paranoiaImage(group1))
+            val parameterTmp = buildAnnouncementParameters {
+                image = imageAnnouncementTmp
+                sendToNewMember = false
+                isPinned = false
+                showEditCard = false
+                showPopup = false
+                requireConfirmation = false
+            }
+            val announcementTemp = OfflineAnnouncement.create("管理偏执度", parameterTmp)
+            if (!ShirakanaDataFlags.announcementsList.contains(GroupID.toLong())) {
+                ShirakanaDataFlags.announcementsList.put(
+                    GroupID.toLong(),
+                    announcementTemp.publishTo(group1).fid
+                )
+            } else {
+                ShirakanaDataFlags.announcementsList[GroupID.toLong()] =
+                    announcementTemp.publishTo(group1).fid
+            }
+        }
     }
 
     @JvmStatic
@@ -184,13 +138,13 @@ object ShirakanaParanoia : CompositeCommand(
 
         graphics.drawImage(ParanoiaEmpty, 0, 0, null)
         val thisFileTmp = File("data/org.fujiwara.shirakana.adminbot.plugin/cleaned")
-        var imageSetTmp = mutableSetOf<BufferedImage>()
+        val imageSetTmp = mutableSetOf<BufferedImage>()
         if (thisFileTmp.exists()){
             for(fileTmp in thisFileTmp.listFiles()){
                 imageSetTmp.add(ImageIO.read(fileTmp))
             }
         }
-        var it = imageSetTmp.iterator()
+        val it = imageSetTmp.iterator()
         if(it.hasNext()){
             graphics.drawImage(it.next(), 49, 281,140,140, null)
         }
@@ -244,7 +198,9 @@ object ShirakanaParanoia : CompositeCommand(
     }
 
     suspend fun GetImageTutu(target : Contact,group : Contact):Image{
-        return KillGroupMembersImage(ImageIO.read(URL(target.avatarUrl))).uploadAsImage(group)
+        return KillGroupMembersImage(withContext(Dispatchers.IO) {
+            ImageIO.read(URL(target.avatarUrl))
+        }).uploadAsImage(group)
     }
 
     fun KillGroupMembersImage(imageMembers: BufferedImage): ExternalResource {
@@ -261,47 +217,9 @@ object ShirakanaParanoia : CompositeCommand(
 }
 
 object ShirakanaXianZhongRen : CompositeCommand(
-    ShirakanaAdminBot, "Tutu",
+    ShirakanaAdminBot, "Tutu","清洗",
     description = "开启献忠人模式",
 ) {
-    @SubCommand
-    @Description("小清洗")
-    suspend fun CommandSender.SmallClean(GroupId : String){
-        if(ShirakanaDataFlags.flagSmallCleanStart){
-            sendMessage("另一个群已经开始清洗")
-            return
-        }
-        if(ShirakanaDataGroupMember.selectedGroups.contains(GroupId)){
-            val thisGroup = bot?.getGroup(GroupId.toLong())
-            var i = 0
-            var msgChain = buildMessageChain {
-                +PlainText("当前群聊管理偏执度过高，准备开始清洗\n名单加急：\n")
-            }
-            if(thisGroup!=null){
-                for(tempMember in thisGroup.members){
-                    if(ShirakanaDataGroupMember.smallCleanTarget.contains(tempMember.id.toString())){
-                        i++
-                        msgChain += buildMessageChain {
-                            +PlainText("[$i]、")
-                            +tempMember.at()
-                            +PlainText("\n")
-                        }
-                    }
-                }
-                if(i==0){
-                    sendMessage("当前名单为空或指定群聊中无名单上群员")
-                    return
-                }
-                msgChain.plus("请内务部选择要枪毙的群员（AT即可）\n清洗结束时请管理员输入：结束清洗")
-                thisGroup.sendMessage(AtAll)
-                thisGroup.sendMessage(msgChain)
-                ShirakanaDataFlags.flagSmallCleanStart = true
-                ShirakanaDataFlags.flagSmallCleanTarget = GroupId.toLong()
-            }
-        }else{
-            sendMessage("该群未启用功能")
-        }
-    }
     @SubCommand
     @Description("大清洗")
     suspend fun CommandSender.BigClean(){
@@ -318,15 +236,15 @@ object ShirakanaXianZhongRen : CompositeCommand(
             sendMessage("请再次思考后输入正确的参数")
             return
         }else{
-            if(!ShirakanaDataGroupMember.selectedGroups.contains(GroupTarget)){
+            if(!ShirakanaDataGroupMember.enabledGroups.contains(GroupTarget.toLong())){
                 sendMessage("该群聊未启用")
                 return
             }else{
                 val currGroupThis = bot?.getGroup(GroupTarget.toLong())
                 if (currGroupThis != null) {
                     for(currMember in currGroupThis.members){
-                        if(currMember.lastSpeakTimestamp>=ShirakanaBigCleanSetting.bigCleanTargetTimeDay*24*60*60*100) {
-                            if (ShirakanaDataGroupMember.bigCleanTarget.contains(currMember.id.toString())) {
+                        if(currMember.lastSpeakTimestamp>=ShirakanaBigCleanSetting.bigCleanTime*24*60*60*100) {
+                            if (ShirakanaDataGroupMember.bigCleanWhiteList.contains(currMember.id)) {
                                 continue
                             }
                             if (currMember.specialTitle != "") {
@@ -351,50 +269,120 @@ object ShirakanaXianZhongRen : CompositeCommand(
     @SubCommand
     @Description("查看处于被清洗状态的QQ号码")
     suspend fun CommandSender.List(){
-        sendMessage("被清洗的QQ："+ShirakanaDataGroupMember.ShirakanaBlackListGroup)
+        sendMessage("被清洗的QQ："+ShirakanaDataGroupMember.blackList)
     }
     @SubCommand
     @Description("将一个账号添加至“被清洗”状态列表")
     suspend fun CommandSender.Add(QQId : Long){
-        if(ShirakanaDataGroupMember.ShirakanaBlackListGroup.add(QQId.toString())){
-            sendMessage(QQId.toString()+"已被添加至列表")
+        var targets=""
+        for (groupId in ShirakanaDataGroupMember.enabledGroups) {
+            val tmpGroup = bot?.getGroup(groupId) ?: continue
+            val memberTmp = tmpGroup.members[QQId] ?: continue
+            if(ShirakanaDataGroupMember.blackList.add(QQId)) {
+                targets += "昵称：" + memberTmp.nick + " QQ号：" + memberTmp.id + "\n"
+            }
+            break
+        }
+        if (targets==""){
+            sendMessage("列表中无新增成员")
+        }else{
+            sendMessage("以下群友被加入清洗名单：\n$targets")
         }
     }
     @SubCommand
     @Description("将一个账号移除出“被清洗”状态列表")
     suspend fun CommandSender.Del(QQId : Long){
-        if(ShirakanaDataGroupMember.ShirakanaBlackListGroup.remove(QQId.toString())){
-            sendMessage(QQId.toString()+"已被移除出列表")
-            val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/$QQId.png"
-            val delPutImage = File(thisFileName)
-            delPutImage.delete()
+        var targets=""
+        for (groupId in ShirakanaDataGroupMember.enabledGroups) {
+            val tmpGroup = bot?.getGroup(groupId) ?: continue
+            val memberTmp = tmpGroup.members[QQId] ?: continue
+            if(ShirakanaDataGroupMember.blackList.remove(QQId)) {
+                targets += "昵称：" + memberTmp.nick + " QQ号：" + memberTmp.id + "\n"
+                val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/$QQId.png"
+                val delPutImage = File(thisFileName)
+                delPutImage.delete()
+            }
+            break
+        }
+        if (targets==""){
+            sendMessage("列表中无减少成员")
+        }else{
+            sendMessage("以下群友被移除出清洗名单：\n$targets")
         }
     }
     @SubCommand
     @Description("清洗处于“被清洗”状态的成员")
     suspend fun CommandSender.kick(){
-        for(groupId in ShirakanaDataGroupMember.selectedGroups){
-            val groupThisShira = bot?.getGroup(groupId.toLong())
-            for(BlackId in ShirakanaDataGroupMember.ShirakanaBlackListGroup){
-                val thisGroupTarget = groupThisShira?.get(BlackId.toLong())
-                if(thisGroupTarget==null){
-                    continue
-                }else{
-                    if(thisGroupTarget.isOwner()||thisGroupTarget.isAdministrator()){
-                        continue
-                    }else{
-                        val newImg = ImageIO.read(URL(thisGroupTarget.avatarUrl))
-                        val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/"+thisGroupTarget.id.toString()+".png"
-                        val outPutImage = File(thisFileName)
-                        ImageIO.write(newImg, "png", outPutImage)
-                        thisGroupTarget.kick("你已被清洗")
-                    }
-                }
+        for(groupId in ShirakanaDataGroupMember.enabledGroups){
+            val groupTmp = bot?.getGroup(groupId) ?: continue
+            for(memberId in ShirakanaDataGroupMember.blackList){
+                groupTmp[memberId]?.kick("你已被清洗")
             }
         }
         sendMessage("清洗完毕")
     }
-    @SubCommand
+
+}
+
+object QuickCleanRepeatTarget : SimpleCommand(
+    ShirakanaAdminBot, "CleanRepeat",
+    description = "清理被禁止重复加群的群员（将其保留在指定群，其他群踢出）"
+) {
+    @Handler
+    suspend fun CommandSender.quickCleanRepeatTarget(GroupTarget: Long) {
+        if(ShirakanaDataGroupMember.enabledGroups.contains(GroupTarget)&&bot?.getGroup(GroupTarget)!=null){
+            for(groupId in ShirakanaDataGroupMember.enabledGroups){
+                if(groupId==GroupTarget)continue
+                val groupTmp = bot?.getGroup(GroupTarget) ?: continue
+                if(ShirakanaBigCleanSetting.refuseMode){
+                    for(memberId in ShirakanaDataGroupMember.repeatList){
+                        groupTmp[memberId]?.kick("你重复加入了另一个群聊")
+                    }
+                }else{
+                    for(member in groupTmp.members){
+                        if(!ShirakanaDataGroupMember.repeatList.contains(member.id))
+                            member.kick("你重复加入了另一个群聊")
+                    }
+                }
+            }
+        }
+    }
+}
+
+object QBAMember : SimpleCommand(
+    ShirakanaAdminBot, "QB",
+    description = "枪毙一个群友"
+) {
+    @Handler
+    suspend fun CommandSender.QBYGQY(MemberTarget: Member) {
+        if(subject!=null&&ShirakanaDataGroupMember.enabledGroups.contains(subject!!.id)){
+            if(MemberTarget.isAdministrator()||MemberTarget.isOwner()){
+                subject!!.sendMessage("你无权清洗管理员")
+                return
+            }
+            val msgChain = buildMessageChain {
+                +PlainText("群友："+MemberTarget.nick+"已被清洗\n")
+                +ShirakanaParanoia.GetImageTutu(MemberTarget,subject!!)
+            }
+            val newImg = withContext(Dispatchers.IO) {
+                ImageIO.read(URL(MemberTarget.avatarUrl))
+            }
+            val thisFileName = "data/org.fujiwara.shirakana.adminbot.plugin/cleaned/"+MemberTarget.id.toString()+".png"
+            val outPutImage = File(thisFileName)
+            withContext(Dispatchers.IO) {
+                ImageIO.write(newImg, "png", outPutImage)
+            }
+            for(groupID in ShirakanaDataGroupMember.enabledGroups){
+                bot?.getGroup(groupID.toLong())?.sendMessage(msgChain)
+                bot?.getGroup(groupID.toLong())?.get(MemberTarget.id)?.kick("你已被清洗")
+            }
+            ShirakanaDataGroupMember.blackList.add(MemberTarget.id)
+        }
+    }
+}
+/*
+
+@SubCommand
     @Description("清洗一个指定群员（可用@）")
     suspend fun CommandSender.kill(TmpMember : Member){
         for(groupId in ShirakanaDataGroupMember.selectedGroups){
@@ -419,86 +407,5 @@ object ShirakanaXianZhongRen : CompositeCommand(
         }
         sendMessage("清洗完毕")
     }
-    @SubCommand
-    @Description("帮助")
-    suspend fun CommandSender.help(){
-        sendMessage("帮助如下：（<>代表参数）\n/Tutu SmallClean <群号>：在指定群开启清洗（清洗目标为CleanList smallclean指定的人，执行后可以从中选择任意人数进行清洗\n/Tutu BigClean：开启大清洗（会跳过CleanList bigclean指定的人、有群专属头衔的人、群备注包含ShirakanaBigCleanSetting.nameStandard的人）默认目标为2个月不发言的群员\n/Tutu List：查看被清洗者名单\n/Tutu Add <QQ>：将某人加入已被清洗名单\n/Tutu Del <QQ>：将某人删除出已被清洗名单\n/Tutu kick：在所有的群踢出“已被清洗”名单中的群员")
-    }
-}
 
-object QuickCleanRepeatTarget : SimpleCommand(
-    ShirakanaAdminBot, "CleanRepeat",
-    description = "清理被禁止重复加群的群员（将其保留在指定群，其他群踢出）"
-) {
-    @Handler
-    suspend fun CommandSender.quickCleanRepeatTarget(GroupTarget: String) {
-        if(ShirakanaDataGroupMember.selectedGroups.contains(GroupTarget)){
-            if(ShirakanaBigCleanSetting.repeat_join_clean_mode){
-                val thisGroupTemp = bot?.getGroup(GroupTarget.toLong())
-                if(thisGroupTemp!=null){
-                    for(memberId in ShirakanaDataGroupMember.groupMembersTarget){
-                        if(thisGroupTemp.members.contains(memberId.toLong())){
-                            for(groupId in ShirakanaDataGroupMember.selectedGroups){
-                                if(groupId == GroupTarget){
-                                    continue
-                                }else{
-                                    val tmpThisTargetMember = bot?.getGroup(groupId.toLong())?.get(memberId.toLong())
-                                    if (tmpThisTargetMember != null) {
-                                        if(tmpThisTargetMember.isAdministrator()||tmpThisTargetMember.isOwner()){
-                                            continue
-                                        }else{
-                                            tmpThisTargetMember.kick("你重复加入了另一个群")
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }else {
-                if(ShirakanaDataGroupMember.selectedGroups.contains(GroupTarget)) {
-                    val tmpThisGroup= bot?.getGroup(GroupTarget.toLong()) ?: return
-                    for(membersThisTmp in tmpThisGroup.members) {
-                        if(membersThisTmp.isAdministrator()||membersThisTmp.isOwner()||ShirakanaDataGroupMember.groupMembersTarget.contains(membersThisTmp.id.toString())){
-                            continue
-                        }
-                        for (groupId in ShirakanaDataGroupMember.selectedGroups) {
-                            if (groupId == GroupTarget) {
-                                continue
-                            } else {
-                                val tmpTargetGroup = bot?.getGroup(groupId.toLong())
-                                if(tmpTargetGroup!=null){
-                                    if(tmpTargetGroup.members.contains(membersThisTmp.id)){
-                                        membersThisTmp.kick("你重复加入了其他群聊")
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }else{
-            sendMessage("该群未启用功能")
-        }
-        sendMessage("清理完毕")
-    }
-}
-
-object ListBigCleanTargets : SimpleCommand(
-    ShirakanaAdminBot, "ListBigCleanTargets",
-    description = "测试指令"
-) {
-    @Handler
-    suspend fun CommandSender.listBigCleanTargets(GroupTarget: Long) {
-        var msg = "以下群友包括在大清洗跳过名单中：\n"
-        val membersListTmp = bot?.getGroup(GroupTarget)?.members
-        if (membersListTmp != null) {
-            for(member in membersListTmp){
-                if(ShirakanaDataGroupMember.bigCleanTarget.contains(member.id.toString())||member.specialTitle != ""||member.nameCard.contains(ShirakanaBigCleanSetting.nameStandard)){
-                    msg+="昵称：["+member.specialTitle+"] "+member.nick+"\n"
-                }
-            }
-        }
-        sendMessage(msg)
-    }
-}
+*/
