@@ -1,4 +1,4 @@
-# shirakana-admin-bot
+# Torishirojima-admin-bot
 ---
 ## 插件介绍：
 本插件实现的功能主要有：
